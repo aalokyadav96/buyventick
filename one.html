@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Booking System</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin-bottom: 20px; }
+        button { padding: 10px; margin: 5px; cursor: pointer; }
+        #reviewSection, #orderHistorySection, #cancelSection { display: none; }
+    </style>
+</head>
+<body>
+
+<h1>Event Details</h1>
+<div id="eventDetails" class="section">
+    <h3 id="eventTitle"></h3>
+    <p><strong>Date:</strong> <span id="eventDate"></span></p>
+    <p><strong>General Admission:</strong> $<span id="gaPrice"></span> (<span id="gaAvailable"></span> available)</p>
+    <p><strong>VIP:</strong> $<span id="vipPrice"></span> (<span id="vipAvailable"></span> available)</p>
+</div>
+
+<h2>Book Tickets</h2>
+<div class="section">
+    <form id="bookingForm">
+        <label for="generalAdmission">General Admission:</label>
+        <input type="number" id="generalAdmission" name="general_admission" min="0" value="0"><br>
+
+        <label for="vip">VIP:</label>
+        <input type="number" id="vip" name="vip" min="0" value="0"><br>
+
+        <button type="submit">Review and Book</button>
+    </form>
+</div>
+
+<div id="reviewSection" class="section">
+    <h3>Review Your Order</h3>
+    <p id="reviewDetails"></p>
+    <button id="confirmButton">Confirm Booking</button>
+    <button id="cancelReviewButton">Cancel</button>
+</div>
+
+<div id="cancelSection" class="section">
+    <h2>Cancel Tickets</h2>
+    <form id="cancelForm">
+        <label for="ticketType">Ticket Type:</label>
+        <select id="ticketType" name="ticket_type">
+            <option value="general_admission">General Admission</option>
+            <option value="vip">VIP</option>
+        </select><br>
+
+        <label for="quantity">Quantity:</label>
+        <input type="number" id="quantity" name="quantity" min="1" value="1"><br>
+
+        <button type="submit">Cancel Tickets</button>
+    </form>
+</div>
+
+<h2>Order History</h2>
+<button id="viewOrderHistoryButton">View Order History</button>
+<div id="orderHistorySection" class="section">
+    <h3>Your Orders</h3>
+    <div id="orderHistory"></div>
+</div>
+
+<script>
+// Fetch and display event details
+function loadEventDetails() {
+    fetch('http://localhost:4000/event-details')
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById("eventTitle").innerText = data.title;
+        document.getElementById("eventDate").innerText = data.date;
+        document.getElementById("gaPrice").innerText = data.tickets[0].price;
+        document.getElementById("gaAvailable").innerText = data.tickets[0].available;
+        document.getElementById("vipPrice").innerText = data.tickets[1].price;
+        document.getElementById("vipAvailable").innerText = data.tickets[1].available;
+    });
+}
+
+document.getElementById("bookingForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const bookingData = {
+        general_admission: parseInt(formData.get("general_admission")),
+        vip: parseInt(formData.get("vip")),
+    };
+
+    fetch("http://localhost:4000/review-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bookingData),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message === "Review your order") {
+            document.getElementById("reviewDetails").innerText = `General Admission: ${bookingData.general_admission}, VIP: ${bookingData.vip}, Total Cost: $${data.total_cost}`;
+            document.getElementById("reviewSection").style.display = "block";
+        } else {
+            alert("Error: " + data.message);
+        }
+    });
+});
+
+document.getElementById("confirmButton").addEventListener("click", function () {
+    const formData = new FormData(document.getElementById("bookingForm"));
+    const bookingData = {
+        general_admission: parseInt(formData.get("general_admission")),
+        vip: parseInt(formData.get("vip")),
+    };
+
+    fetch("http://localhost:4000/confirm-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bookingData),
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert("Booking Confirmed! Total cost: $" + data.total_cost);
+        document.getElementById("reviewSection").style.display = "none";
+        loadEventDetails();
+    });
+});
+
+document.getElementById("cancelReviewButton").addEventListener("click", function () {
+    document.getElementById("reviewSection").style.display = "none";
+});
+
+document.getElementById("cancelForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const cancelData = {
+        ticket_type: formData.get("ticket_type"),
+        quantity: parseInt(formData.get("quantity")),
+    };
+
+    fetch("http://localhost:4000/cancel-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cancelData),
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert("Cancellation successful!");
+        loadEventDetails();
+    });
+});
+
+document.getElementById("viewOrderHistoryButton").addEventListener("click", function () {
+    fetch("http://localhost:4000/order-history")
+    .then(response => response.json())
+    .then(data => {
+        let historyHtml = "";
+        data.forEach(order => {
+            historyHtml += `<p>Order ID: ${order.id}, General Admission: ${order.general_admission}, VIP: ${order.vip}, Total Cost: $${order.total_cost}, Purchase Time: ${new Date(order.purchase_time).toLocaleString()}</p>`;
+        });
+        document.getElementById("orderHistory").innerHTML = historyHtml;
+        document.getElementById("orderHistorySection").style.display = "block";
+    });
+});
+
+// Load event details on page load
+loadEventDetails();
+</script>
+
+</body>
+</html>
